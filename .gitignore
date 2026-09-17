@@ -1,0 +1,21 @@
+# Build artifacts
+/build/
+
+
+# Compiled object files
+*.o
+*.a
+
+
+# Debug and symbol files
+*.elf
+*.map
+
+
+# Generated disk images
+*.iso
+*.img
+
+
+# Editor files
+.vscode/
