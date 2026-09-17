@@ -33,13 +33,15 @@ stack_top:
 
 section .text
 global _start
+extern kernel_main
 
 
 _start:
     cli
 
-
     mov esp, stack_top
+
+    call kernel_main
 
 
 

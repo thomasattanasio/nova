@@ -4,7 +4,7 @@ CC := $(TARGET)-gcc
 LD := $(TARGET)-ld
 AS := nasm
 
-CFLAGS := -std=c11 -ffreestanding -fno-stack-protector -Wall -Wextra
+CFLAGS := -std=c11 -ffreestanding -m32 -fno-stack-protector -fno-pie -fno-pic -fno-asynchronous-unwind-tables -fno-unwind-tables -Wall -Wextra
 LDFLAGS := -m elf_i386
 
 BUILD_DIR := build
@@ -30,8 +30,11 @@ $(BUILD_DIR):
 $(BUILD_DIR)/entry.o: src/arch/x86_64/boot/entry.asm | $(BUILD_DIR)
 	$(AS) -f elf32 $< -o $@
 
-$(KERNEL): $(BUILD_DIR)/entry.o scripts/linker.ld
-	$(LD) $(LDFLAGS) -T scripts/linker.ld -o $@ $(BUILD_DIR)/entry.o
+$(BUILD_DIR)/kernel.o: src/kernel/kernel.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(KERNEL): $(BUILD_DIR)/entry.o $(BUILD_DIR)/kernel.o scripts/linker.ld
+	$(LD) $(LDFLAGS) -T scripts/linker.ld -o $@ $(BUILD_DIR)/entry.o $(BUILD_DIR)/kernel.o
 
 kernel: check-toolchain $(KERNEL)
 	grub-file --is-x86-multiboot2 $(KERNEL)
@@ -45,7 +48,12 @@ $(ISO): $(KERNEL) boot/grub/grub.cfg
 iso: check-toolchain $(ISO)
 
 run: iso
-	qemu-system-x86_64 -cdrom $(ISO)
+	env -i \
+	PATH=/usr/bin:/bin \
+	HOME="$(HOME)" \
+	DISPLAY="$(DISPLAY)" \
+	XAUTHORITY="$(XAUTHORITY)" \
+	qemu-system-x86_64 -cdrom "$(ISO)"
 
 clean:
 	rm -rf $(BUILD_DIR)
