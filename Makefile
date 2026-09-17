@@ -5,12 +5,21 @@ LD := $(TARGET)-ld
 AS := nasm
 
 CFLAGS := -std=c11 -ffreestanding -m32 -fno-stack-protector -fno-pie -fno-pic -fno-asynchronous-unwind-tables -fno-unwind-tables -Wall -Wextra
+CPPFLAGS := -Iinclude
 LDFLAGS := -m elf_i386
 
 BUILD_DIR := build
 ISO_DIR := $(BUILD_DIR)/iso
 KERNEL := $(BUILD_DIR)/kernel.bin
 ISO := $(BUILD_DIR)/nova.iso
+
+KERNEL_SOURCES := \
+	src/kernel/kernel.c \
+	src/kernel/terminal.c
+
+KERNEL_OBJECTS := \
+	$(BUILD_DIR)/kernel.o \
+	$(BUILD_DIR)/terminal.o
 
 .PHONY: all check-toolchain kernel iso run clean
 
@@ -31,10 +40,13 @@ $(BUILD_DIR)/entry.o: src/arch/x86_64/boot/entry.asm | $(BUILD_DIR)
 	$(AS) -f elf32 $< -o $@
 
 $(BUILD_DIR)/kernel.o: src/kernel/kernel.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-$(KERNEL): $(BUILD_DIR)/entry.o $(BUILD_DIR)/kernel.o scripts/linker.ld
-	$(LD) $(LDFLAGS) -T scripts/linker.ld -o $@ $(BUILD_DIR)/entry.o $(BUILD_DIR)/kernel.o
+$(BUILD_DIR)/terminal.o: src/kernel/terminal.c | $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(KERNEL): $(BUILD_DIR)/entry.o $(KERNEL_OBJECTS) scripts/linker.ld
+	$(LD) $(LDFLAGS) -T scripts/linker.ld -o $@ $(BUILD_DIR)/entry.o $(KERNEL_OBJECTS)
 
 kernel: check-toolchain $(KERNEL)
 	grub-file --is-x86-multiboot2 $(KERNEL)
