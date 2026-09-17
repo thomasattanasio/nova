@@ -5,19 +5,47 @@ LD := $(TARGET)-ld
 AS := nasm
 
 CFLAGS := -std=c11 -ffreestanding -fno-stack-protector -Wall -Wextra
-LDFLAGS :=
+LDFLAGS := -m elf_i386
 
 BUILD_DIR := build
+ISO_DIR := $(BUILD_DIR)/iso
+KERNEL := $(BUILD_DIR)/kernel.bin
+ISO := $(BUILD_DIR)/nova.iso
 
-.PHONY: all check-toolchain clean
+.PHONY: all check-toolchain kernel iso run clean
 
-all: check-toolchain
+all: iso
 
 check-toolchain:
 	@command -v $(CC) >/dev/null || (echo "Error: $(CC) not found."; exit 1)
 	@command -v $(LD) >/dev/null || (echo "Error: $(LD) not found."; exit 1)
 	@command -v $(AS) >/dev/null || (echo "Error: $(AS) not found."; exit 1)
+	@command -v grub-file >/dev/null || (echo "Error: grub-file not found."; exit 1)
+	@command -v grub-mkrescue >/dev/null || (echo "Error: grub-mkrescue not found."; exit 1)
 	@echo "NOVA toolchain is ready."
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/entry.o: src/arch/x86_64/boot/entry.asm | $(BUILD_DIR)
+	$(AS) -f elf32 $< -o $@
+
+$(KERNEL): $(BUILD_DIR)/entry.o scripts/linker.ld
+	$(LD) $(LDFLAGS) -T scripts/linker.ld -o $@ $(BUILD_DIR)/entry.o
+
+kernel: check-toolchain $(KERNEL)
+	grub-file --is-x86-multiboot2 $(KERNEL)
+
+$(ISO): $(KERNEL) boot/grub/grub.cfg
+	mkdir -p $(ISO_DIR)/boot/grub
+	cp $(KERNEL) $(ISO_DIR)/boot/kernel.bin
+	cp boot/grub/grub.cfg $(ISO_DIR)/boot/grub/grub.cfg
+	grub-mkrescue -o $@ $(ISO_DIR)
+
+iso: check-toolchain $(ISO)
+
+run: iso
+	qemu-system-x86_64 -cdrom $(ISO)
 
 clean:
 	rm -rf $(BUILD_DIR)
