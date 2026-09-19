@@ -3,7 +3,10 @@
 
 void kernel_main(void) {
     terminal_initialize();
-    terminal_write("NOVA_OS");
+
+
+    terminal_write("NOVA ");
+    terminal_write("Kernel");
 
 
     while (1) {
